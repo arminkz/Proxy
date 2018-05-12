@@ -1,7 +1,7 @@
 require 'socket'
 require 'uri'
 
-class Proxy
+class HTTPProxy
 
   def start(port)
     begin
@@ -93,8 +93,8 @@ if ARGV.empty?
 elsif ARGV.size == 1
   port = ARGV[0].to_i
 else
-  puts 'Usage: proxy.rb [port]'
+  puts 'Usage: http_proxy.rb [port]'
   exit 1
 end
 
-Proxy.new.start(port)
+HTTPProxy.new.start(port)
