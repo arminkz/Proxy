@@ -54,7 +54,7 @@ class DnsPacket < BinData::Record
 end
 
 
-class DNSServer
+class DNSProxy
   attr_reader :port, :ttl
 
   def initialize(port: 5300 , ttl: 60)
@@ -164,4 +164,4 @@ class DNSServer
 
 end
 
-DNSServer.new(ttl: 120).run
+DNSProxy.new(ttl: 120).run
