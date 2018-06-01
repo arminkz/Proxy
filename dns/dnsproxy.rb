@@ -1,5 +1,6 @@
 require 'socket'
 require 'bindata'
+require 'ipaddr'
 
 class DnsHeader < BinData::Record
 	endian :big
@@ -53,6 +54,7 @@ class DnsPacket < BinData::Record
   array :addl_records, type: :resource_record, initial_length: lambda { header.ar_count }
 end
 
+
 class DNSServer
   attr_reader :port, :ttl
   attr_accessor :records
@@ -61,7 +63,7 @@ class DNSServer
     @port, @records, @ttl = port, records, ttl
   end
 
-  def create_response(rcvd)
+  def create_response(rcvd,ip)
     resp = DnsPacket.new
     resp.header = DnsHeader.new
     resp.header.transaction_id = rcvd.header.transaction_id
@@ -84,7 +86,7 @@ class DNSServer
     rr.rclass = rcvd.questions[0].rclass
     rr.ttl = @ttl
     rr.rdlength = 4 #IPv4 is 4 bytes #TODO: for other types of query (ex. IPv6 AAA) this must change!
-    rr.rdata = 0x5db8d822
+    rr.rdata = ip.split('.').collect(&:to_i).pack("C*")
     resp.answers.push(rr)
     return resp
   end
@@ -100,10 +102,9 @@ class DNSServer
       Socket.udp_server_loop(@port) do |data, src|
       	r = DnsPacket.new
         r.read(data)
-        puts r
 
         #Build Up Response
-        resp = create_response(r)
+        resp = create_response(r,"10.0.2.15")
 
         src.reply resp.to_binary_s
       end
