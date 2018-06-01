@@ -1,49 +1,48 @@
 require 'socket'
 require 'bindata'
-require 'ipaddr'
 
 class DnsHeader < BinData::Record
-	endian :big
-	uint16 :transaction_id
-	bit1 :flag_QR
-	bit4 :opcode
-	bit1 :flag_AA
-	bit1 :flag_TC
-	bit1 :flag_RD
-	bit1 :flag_RA
-	bit3 :flag_Z
-	bit4 :rcode
-	uint16 :q_count
-	uint16 :a_count
-	uint16 :ns_count
-	uint16 :ar_count
+  endian :big
+  uint16 :transaction_id
+  bit1 :flag_QR
+  bit4 :opcode
+  bit1 :flag_AA
+  bit1 :flag_TC
+  bit1 :flag_RD
+  bit1 :flag_RA
+  bit3 :flag_Z
+  bit4 :rcode
+  uint16 :q_count
+  uint16 :a_count
+  uint16 :ns_count
+  uint16 :ar_count
 end
 
 class NameElement < BinData::Record
-	endian :big
-	bit2 :flag
-	bit6 :nelen
-	string :name, read_length: :nelen
-	#TODO : must support ptr types here
+  endian :big
+  bit2 :flag
+  bit6 :nelen
+  string :name, read_length: :nelen
+  #TODO : must support ptr types here
 end
 
 class NameSeq < BinData::Record
-	array :names, type: :name_element, read_until: lambda { element.flag != 0x0 or element.name == '' }
+  array :names, type: :name_element, read_until: lambda { element.flag != 0x0 or element.name == '' }
 end
 
 class DnsRecord < BinData::Record
-	endian :big
-	name_seq :rnameseq
-	uint16 :rtype
-	uint16 :rclass
+  endian :big
+  name_seq :rnameseq
+  uint16 :rtype
+  uint16 :rclass
 end
 
 class Question < DnsRecord; end
 
 class ResourceRecord < DnsRecord
-	uint32 :ttl
-	uint16 :rdlength
-	string :rdata, read_length: :rdlength
+  uint32 :ttl
+  uint16 :rdlength
+  string :rdata, read_length: :rdlength
 end
 
 class DnsPacket < BinData::Record
