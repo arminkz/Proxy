@@ -47,10 +47,10 @@ end
 
 class DnsPacket < BinData::Record
 	dns_header :header
-    array :questions,    type: :question,        initial_length: lambda { header.q_count }
-    array :answers,      type: :resource_record, initial_length: lambda { header.a_count }
-    array :authorities,  type: :resource_record, initial_length: lambda { header.ns_count }
-    array :addl_records, type: :resource_record, initial_length: lambda { header.ar_count }
+  array :questions,    type: :question,        initial_length: lambda { header.q_count }
+  array :answers,      type: :resource_record, initial_length: lambda { header.a_count }
+  array :authorities,  type: :resource_record, initial_length: lambda { header.ns_count }
+  array :addl_records, type: :resource_record, initial_length: lambda { header.ar_count }
 end
 
 class DNSServer
@@ -59,6 +59,34 @@ class DNSServer
 
   def initialize(port: 5300 , ttl: 60 , records: {})
     @port, @records, @ttl = port, records, ttl
+  end
+
+  def create_response(rcvd)
+    resp = DnsPacket.new
+    resp.header = DnsHeader.new
+    resp.header.transaction_id = rcvd.header.transaction_id
+    resp.header.flag_QR = 1
+    resp.header.opcode = 0
+    resp.header.flag_AA = 0
+    resp.header.flag_RD = 0
+    resp.header.flag_RA = 0
+    resp.header.rcode = 0
+    resp.header.q_count = 1
+    resp.header.a_count = 1
+    resp.header.ns_count = 0
+    resp.header.ar_count = 0
+    resp.questions = rcvd.questions
+    resp.answers = []
+    #Append Answer RR
+    rr = ResourceRecord.new
+    rr.rnameseq = rcvd.questions[0].rnameseq
+    rr.rtype = rcvd.questions[0].rtype
+    rr.rclass = rcvd.questions[0].rclass
+    rr.ttl = @ttl
+    rr.rdlength = 4 #IPv4 is 4 bytes #TODO: for other types of query (ex. IPv6 AAA) this must change!
+    rr.rdata = 0x5db8d822
+    resp.answers.push(rr)
+    return resp
   end
 
   def run
@@ -75,18 +103,9 @@ class DNSServer
         puts r
 
         #Build Up Response
-        # r.flag_QR = 1
-        # r.opcode = 0x00
-        # r.flag_AA = 0
-        # r.flag_RD = 0 #no recursion yet
-        # r.flag_RA = 0 #no recursion yet
-        # r.rcode = 0
-        
-        resp = r.to_binary_s
-        src.reply resp
-        
-        #src.reply 
-        #src.reply r.get_response(@records[r.domain])
+        resp = create_response(r)
+
+        src.reply resp.to_binary_s
       end
 
     rescue Interrupt
