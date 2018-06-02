@@ -1,5 +1,6 @@
 require 'socket'
 require 'bindata'
+require 'yaml'
 
 class DnsHeader < BinData::Record
   endian :big
@@ -55,16 +56,17 @@ end
 
 
 class DNSProxy
-  attr_reader :port, :ttl
+  attr_reader :port, :ttl, :dns
 
-  def initialize(port: 5300 , ttl: 60)
-    @port, @ttl = port, ttl
+  def initialize(port: 5300 , ttl: 60 , dns: "8.8.8.8")
+    @port, @ttl , @dns = port, ttl, dns
 
     #DNS Database
-    @records = {
-      "4kp.ir." => "185.55.277.57",
-      "google.com." => "172.217.18.174"
-    }
+    # @records = {
+    #   "4kp.ir." => "185.55.277.57",
+    #   "google.com." => "172.217.18.174"
+    # }
+
   end
 
   def get_query_url(rcvd)
@@ -124,7 +126,17 @@ class DNSProxy
   end
 
   def run
-    puts "Starting DNS Proxy Server on port #{@port} ..."
+
+    #Load DNS DB
+    con_yel = "\033[33m"
+    con_end = "\033[0m"
+    con_grn = "\033[32m"
+    con_red = "\033[31m"
+
+    puts "#{con_yel}Rebuilding DNS Cache ...#{con_end}"
+    @records = YAML.load_file('records.yml')
+
+    puts "#{con_grn}Starting DNS Proxy Server on port #{@port} ...#{con_end}"
     @socket = UDPSocket.new
     @socket.bind("localhost",port)
 
@@ -137,20 +149,34 @@ class DNSProxy
         #puts r
 
         url = get_query_url(r)
-        puts url
+        print "Got DNS Request : #{con_yel}#{url}#{con_end} " 
 
         #Build Up Response
         if(@records.has_key?(url))
+          #i have it in cache
           resp = create_response(r,@records[url])
+          src.reply resp.to_binary_s
+          puts "Cache"
         else
-          resp = create_empty_response(r)
+          #i dont have it in cache ask dns
+          dnssock = UDPSocket.new
+          dnssock.connect(@dns,53) #DNS on port 53
+          dnssock.send data, 0
+          resp = dnssock.recvfrom(256)
+          src.reply resp[0]
+          #resp = create_empty_response(r)
+          puts "DNS"
         end
 
-        src.reply resp.to_binary_s
+        
       end
 
     rescue Interrupt
-      puts "Got Interrupt !"
+      puts ""
+      puts "#{con_red}Got Interrupt !#{con_end}"
+
+      puts "#{con_yel}Saving Cache ...#{con_end}"
+      File.write("records.yml",@records.to_yaml)
 
     ensure
       if @socket
