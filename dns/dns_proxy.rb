@@ -19,16 +19,23 @@ class DnsHeader < BinData::Record
   uint16 :ar_count
 end
 
+class PascalString < BinData::Record
+  bit6 :pslen
+  string :str, read_length: :pslen
+end
+
 class NameElement < BinData::Record
   endian :big
   bit2 :flag
-  bit6 :nelen
-  string :name, read_length: :nelen
+  choice :name, selection: :flag do
+    pascal_string 0x0
+    bit14 0x3  #just eat ptr bytes for now ! (yummy num!num!)
+  end
   #TODO : must support ptr types here
 end
 
 class NameSeq < BinData::Record
-  array :names, type: :name_element, read_until: lambda { element.flag != 0x0 or element.name == '' }
+  array :names, type: :name_element, read_until: lambda { element.flag != 0x0 or element.name.str == '' }
 end
 
 class DnsRecord < BinData::Record
@@ -72,8 +79,8 @@ class DNSProxy
   def get_query_url(rcvd)
     url = ""
     for n in rcvd.questions[0].rnameseq.names
-      if (n.nelen > 0)
-        url += n.name + '.'
+      if (n.name.pslen > 0)
+        url += n.name.str + '.'
       end
     end
     return url
@@ -137,8 +144,8 @@ class DNSProxy
     @records = YAML.load_file('records.yml')
 
     puts "#{con_grn}Starting DNS Proxy Server on port #{@port} ...#{con_end}"
-    @socket = UDPSocket.new
-    @socket.bind("localhost",port)
+    #@socket = UDPSocket.new
+    #@socket.bind("localhost",port)
 
     #Try/Catch
     begin
@@ -160,10 +167,15 @@ class DNSProxy
         else
           #i dont have it in cache ask dns
           dnssock = UDPSocket.new
-          dnssock.connect(@dns,53) #DNS on port 53
-          dnssock.send data, 0
-          resp = dnssock.recvfrom(256)
-          src.reply resp[0]
+          dnssock.send data, 0, @dns, 53
+          resp = dnssock.recv 4096
+
+          src.reply resp
+          #store in cache for next use
+          dnsresp = DnsPacket.new
+          dnsresp.read(resp)
+          puts "#{con_red} DUMP #{con_end}"
+          puts dnsresp
           #resp = create_empty_response(r)
           puts "DNS"
         end
