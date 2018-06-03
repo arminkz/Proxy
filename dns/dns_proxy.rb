@@ -174,8 +174,9 @@ class DNSProxy
           #store in cache for next use
           dnsresp = DnsPacket.new
           dnsresp.read(resp)
-          puts "#{con_red} DUMP #{con_end}"
-          puts dnsresp
+          #puts "#{con_red} DUMP #{con_end}"
+          ip = dnsresp.answers[0].rdata.unpack("C*").join(".")
+          @records[url] = ip
           #resp = create_empty_response(r)
           puts "DNS"
         end
