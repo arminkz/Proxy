@@ -4,7 +4,7 @@ require 'uri'
 class HTTPClient
 	attr_reader :proxy_port, :proxy_ip
 
-	def initialize(proxy_port: 8000 , proxy_ip: "localhost")
+	def initialize(proxy_port , proxy_ip)
     	@proxy_port, @proxy_ip = proxy_port, proxy_ip
   	end
 
@@ -26,8 +26,6 @@ class HTTPClient
 			html += line if header_finished
 		end
 
-		#puts html
-
 		# Create Temporary Html file
 		begin
 			file = File.open("tmp.html","w")
@@ -44,14 +42,25 @@ class HTTPClient
 
 end
 
-
 # Get parameters and start the server
-if !ARGV.empty?
-	p ARGV
-else
-	puts 'Usage: http_client.rb hostname'
+if ARGV.empty?
+	puts 'Usage: http_client.rb [-port portnumber] [-proxy ipaddress] hostname'
 	exit 1
+else
+	port = 8000
+	proxy = "localhost"
+	lastp = ""
+	while !ARGV.empty?
+		lastp = ARGV.shift
+		case lastp
+		when "-port"
+			port = ARGV.shift.to_i
+		when "-proxy"
+			proxy = ARGV.shift
+		end
+	end
+
+	client = HTTPClient.new port,proxy
+	client.get URI::parse lastp
 end
 
-client = HTTPClient.new
-client.get URI::parse ARGV[0]
